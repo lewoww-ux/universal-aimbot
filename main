@@ -1,0 +1,162 @@
+-- Shard Seekers Aimbot with Rayfield GUI
+-- [made by leo]
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Shard Seekers Aimbot",
+    LoadingTitle = "Loading Aimbot...",
+    LoadingSubtitle = "by Grok",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "ShardAimbot",
+        FileName = "Config"
+    },
+    Discord = { Enabled = false },
+    KeySystem = false,
+})
+
+local MainTab = Window:CreateTab("Main", 4483362458)
+
+-- Variables
+local aimbotEnabled = false
+local fovEnabled = false
+local fovRadius = 150
+local smoothness = 8
+local targetPart = "Head"
+local teamCheck = true
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local function getClosestTarget()
+    local closest = nil
+    local shortestDistance = math.huge
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            if teamCheck and player.Team == LocalPlayer.Team then continue end
+            
+            local target = player.Character:FindFirstChild(targetPart) or player.Character:FindFirstChild("HumanoidRootPart")
+            if target then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(target.Position)
+                if onScreen then
+                    local distance = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                    if distance < shortestDistance and distance < (fovEnabled and fovRadius or 9999) then
+                        shortestDistance = distance
+                        closest = target
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local aimbotConnection
+local function toggleAimbot(state)
+    aimbotEnabled = state
+    if aimbotConnection then
+        aimbotConnection:Disconnect()
+        aimbotConnection = nil
+    end
+    if state then
+        aimbotConnection = RunService.RenderStepped:Connect(function()
+            if not aimbotEnabled then return end
+            local target = getClosestTarget()
+            if target then
+                local targetPos = target.Position
+                local currentCFrame = Camera.CFrame
+                Camera.CFrame = currentCFrame:Lerp(CFrame.lookAt(currentCFrame.Position, targetPos), 1 / smoothness)
+            end
+        end)
+    end
+end
+
+-- GUI
+MainTab:CreateToggle({
+    Name = "Aimbot",
+    CurrentValue = false,
+    Flag = "AimbotToggle",
+    Callback = function(Value)
+        toggleAimbot(Value)
+    end,
+})
+
+MainTab:CreateToggle({
+    Name = "FOV Circle",
+    CurrentValue = false,
+    Flag = "FOVToggle",
+    Callback = function(Value)
+        fovEnabled = Value
+    end,
+})
+
+MainTab:CreateSlider({
+    Name = "FOV Radius",
+    Range = {50, 500},
+    Increment = 10,
+    CurrentValue = 150,
+    Flag = "FOVSlider",
+    Callback = function(Value)
+        fovRadius = Value
+    end,
+})
+
+MainTab:CreateSlider({
+    Name = "Smoothness",
+    Range = {1, 20},
+    Increment = 1,
+    CurrentValue = 8,
+    Flag = "SmoothnessSlider",
+    Callback = function(Value)
+        smoothness = Value
+    end,
+})
+
+MainTab:CreateDropdown({
+    Name = "Target Part",
+    Options = {"Head", "HumanoidRootPart", "Torso"},
+    CurrentOption = {"Head"},
+    MultipleOptions = false,
+    Flag = "TargetPart",
+    Callback = function(Option)
+        targetPart = Option[1]
+    end,
+})
+
+MainTab:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = true,
+    Flag = "TeamCheck",
+    Callback = function(Value)
+        teamCheck = Value
+    end,
+})
+
+-- FOV Circle
+local fovCircle = Drawing.new("Circle")
+fovCircle.Thickness = 2
+fovCircle.Color = Color3.fromRGB(255, 0, 0)
+fovCircle.Transparency = 0.7
+fovCircle.Filled = false
+fovCircle.NumSides = 64
+
+RunService.RenderStepped:Connect(function()
+    fovCircle.Visible = fovEnabled
+    if fovEnabled then
+        fovCircle.Radius = fovRadius
+        fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    end
+end)
+
+Rayfield:Notify({
+    Title = "Shard Seekers Aimbot",
+    Content = "Successfully loaded! Use the toggles above.",
+    Duration = 5,
+    Image = 4483362458,
+})
+
+print("[made by leo] Shard Aimbot loaded")
